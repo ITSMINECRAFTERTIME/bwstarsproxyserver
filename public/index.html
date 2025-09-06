@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BedWars Level Checker</title>
+</head>
+<body>
+<h1>BedWars Level Checker</h1>
+<input type="text" id="username" placeholder="Enter username">
+<button onclick="loadStats()">Check Level</button>
+<div id="levelDisplay"></div>
+
+<script>
+async function loadStats() {
+  const username = document.getElementById("username").value.trim();
+  if (!username) return alert("Enter a username!");
+  const display = document.getElementById("levelDisplay");
+  display.innerText = "Loading...";
+  try {
+    const res = await fetch(`/api/player/${encodeURIComponent(username)}`);
+    const data = await res.json();
+    display.innerText = data.level ? `BedWars Level: ${data.level}` : data.message;
+  } catch (err) {
+    display.innerText = "Error fetching level.";
+  }
+}
+</script>
+</body>
+</html>
