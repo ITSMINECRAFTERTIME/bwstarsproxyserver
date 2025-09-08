@@ -1,39 +1,36 @@
-const puppeteer = require("puppeteer-core");
+const puppeteer = require("puppeteer");
 
 let browser;
 const cache = new Map();
 const CACHE_TTL = 60 * 1000; // 1 minute cache
 
-// Path to Chrome on Android (Termux)
-// You must have Chrome installed + enable "Remote debugging via port"
-const CHROME_PATH = "/data/data/com.android.chrome/app_chrome/Default"; 
+// Path to Chromium installed via Termux
+const CHROMIUM_PATH = "/data/data/com.termux/files/usr/bin/chromium";
 
-// Launch Chrome (connect to remote if on Android)
 async function launchBrowser() {
   if (!browser) {
-    browser = await puppeteer.connect({
-      browserURL: "http://localhost:9222", // 👈 connect to Chrome DevTools
-      defaultViewport: null,
+    browser = await puppeteer.launch({
+      headless: true, // run headless for Termux
+      executablePath: CHROMIUM_PATH,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
-    console.log("🌐 Connected to Chrome on Android");
+    console.log("🌐 Puppeteer launched (Termux Chromium)");
   }
 }
 
 async function getBedwarsLevel(username) {
   const now = Date.now();
 
-  // ✅ Return cached value if still fresh
+  // Return cached value if still fresh
   if (cache.has(username)) {
     const { level, timestamp } = cache.get(username);
-    if (now - timestamp < CACHE_TTL) {
-      return level;
-    }
+    if (now - timestamp < CACHE_TTL) return level;
   }
 
   let level = null;
 
   try {
-    await launchBrowser(); // ensure browser is running
+    await launchBrowser();
     const page = await browser.newPage();
 
     await page.goto(
@@ -41,20 +38,15 @@ async function getBedwarsLevel(username) {
       { waitUntil: "domcontentloaded", timeout: 30000 }
     );
 
-    // ✅ Selector you gave
     const selector =
       "#root > div.pagelayout.pb-4.px-1 > div.pagelayout-body.px-1 > div:nth-child(2) > section:nth-child(4) > div > div.lazyload-wrapper > div > div.overflow-x > div > div > div.mb-3 > div.h-flex > span:nth-child(1)";
     await page.waitForSelector(selector, { timeout: 15000 });
 
-    level = await page.$eval(selector, el =>
-      el.textContent.replace(/\D/g, "") || null
-    );
+    level = await page.$eval(selector, el => el.textContent.replace(/\D/g, "") || null);
 
     await page.close();
 
-    if (level) {
-      cache.set(username, { level, timestamp: now });
-    }
+    if (level) cache.set(username, { level, timestamp: now });
 
     return level || null;
   } catch (err) {
@@ -63,14 +55,13 @@ async function getBedwarsLevel(username) {
   }
 }
 
-// Clean browser shutdown
 async function closeBrowser() {
   if (browser) {
     try {
-      await browser.disconnect(); // disconnect from Chrome Dev
-      console.log("🛑 Disconnected from Chrome on Android");
+      await browser.close();
+      console.log("🛑 Puppeteer closed");
     } catch (err) {
-      console.warn("⚠️ Error disconnecting:", err.message);
+      console.warn("⚠️ Error closing Puppeteer:", err.message);
     }
     browser = null;
   }
