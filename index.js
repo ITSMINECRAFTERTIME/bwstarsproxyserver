@@ -10,14 +10,14 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // Server-side cache
 const cache = new Map();
-const CACHE_TTL = 60 * 1000; // 1 minute
+const CACHE_TTL = 1 * 60 * 1000; // 1 minute
 
 // API endpoint to get player level
 app.get("/api/player/:username", async (req, res) => {
   const { username } = req.params;
   const now = Date.now();
 
-  // Return cached value if still valid
+  // Use cache if available and still valid
   if (cache.has(username)) {
     const { level, timestamp } = cache.get(username);
     if (now - timestamp < CACHE_TTL) {
@@ -28,14 +28,14 @@ app.get("/api/player/:username", async (req, res) => {
   try {
     const level = await getBedwarsLevel(username);
 
-    if (level !== null) {
+    if (level !== null && level !== undefined) {
       cache.set(username, { level, timestamp: now });
       res.json({ level });
     } else {
       res.json({ level: null, message: "Level not found yet, try again" });
     }
   } catch (err) {
-    console.error(`❌ Error fetching level for ${username}:`, err.message);
+    console.error("Error fetching level:", err);
     res.status(500).json({ level: null, message: "Server error" });
   }
 });
@@ -45,7 +45,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Start server accessible on local network
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Server running at http://0.0.0.0:${PORT}`);
+// Start server
+app.listen(PORT, () => {
+  console.log(`✅ Server running at http://localhost:${PORT}`);
 });
